@@ -7,7 +7,35 @@
     <script type="module">
         import { io } from 'https://cdn.socket.io/4.3.2/socket.io.esm.min.js'
 
-        const socket = io()
+        // Generando nombre de usuario del Chat
+        const getUsername = async () => {
+            // Si el usuario estuviese logueado, lo recuperamos
+            const username = localStorage.getItem('username')
+
+            if(username) {
+                console.log(`El usuario existe ${username} `)
+                return username
+            }
+
+            // Hacemos una llamada a la API para los nombres de usuarios
+            const res = await fetch('https://random-data-api.com/api/users/random_user')
+            // Recuperamos un respuesta de la API y la transformamos en JSON
+            const { username: randomUsername } = await res.json()
+            // Guardamos el nombre random en localStorage
+            localStorage.setItem('username', randomUsername)
+            // devolvemos el nuevo nombre de usuario
+            return randomUsername
+        }
+
+        const socket = io({
+            //Info que va a estar pegada en toda las peticiones      
+            auth:{
+                username: await getUsername(),
+                serverOffset: 0
+            }
+        })
+        
+
         //Accedemos al formulario
         const form = document.getElementById('form')
         // Accedemos al mensaje
@@ -15,16 +43,25 @@
         // Donde vamos a guardar los mensajes
         const messages = document.getElementById('mensaje')
 
+        
+
         // Cuando en el socket recibamos un mensaje
-        socket.on('chat message', (msg) => {
-            const item = `<li>${msg}</li>`
+        socket.on('chat message', (msg, serverOffset, username) => {
+            const item = `<li>
+            <p>${msg}</p>
+            <small>${username}</small>
+            </li>`
             messages.insertAdjacentHTML('beforeend', item)
+            socket.auth.serverOffset = serverOffset
+            // scroll to bottom of messages
+            messages.scrollTop = messages.scrollHeight
        })
     
         // Cuando enviamos un mensaje
         form.addEventListener('submit', (e) =>{
             e.preventDefault()
-            // Si hay un mensaje
+
+            // Si hay un mensaje escrito
             if(input.value){
                 // Enviamos el mensaje al servidor
                 socket.emit('chat message', input.value)
@@ -32,9 +69,6 @@
                 input.value=""
             }
         })
-        
-
-
         
     </script>
     <style>
@@ -72,6 +106,10 @@
             list-style-type: none;
             padding: 0;
             margin: 0;
+            overflow-y: scroll;
+            height: 100%;
+            scroll-behavior: smooth;
+            padding-bottom: 48px;
         }
 
         #mensaje > li{
